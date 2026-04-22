@@ -36,11 +36,36 @@ if (-not $pipxCheck) {
     $pyParts = $python.Split()
     & $pyParts[0] $pyParts[1..($pyParts.Length-1)] -m pip install --user pipx
     & $pyParts[0] $pyParts[1..($pyParts.Length-1)] -m pipx ensurepath
+    # Refresh PATH for the remainder of THIS session (pipx ensurepath only affects new shells).
+    $scriptsDir = & $pyParts[0] $pyParts[1..($pyParts.Length-1)] -c "import sysconfig; print(sysconfig.get_path('scripts', f'{sysconfig.get_default_scheme()}_user'))"
+    if ($scriptsDir -and (Test-Path $scriptsDir)) { $env:Path = "$scriptsDir;$env:Path" }
     $env:Path = [Environment]::GetEnvironmentVariable("Path", "User") + ";" + $env:Path
 }
 
-Write-Host "Installing claude-hub..."
-pipx install --force claude-code-hub
+# Install from PyPI. Falls back to GitHub main if PyPI doesn't have the release yet
+# (useful when running this script from a branch ahead of the last tag).
+Write-Host "Installing claude-hub from PyPI..."
+$pypiFailed = $false
+try {
+    pipx install --force claude-code-hub 2>&1 | Tee-Object -Variable pypiOutput | Out-Host
+    if ($LASTEXITCODE -ne 0 -or ($pypiOutput -match "No matching distribution")) {
+        $pypiFailed = $true
+    }
+} catch {
+    $pypiFailed = $true
+}
+
+if ($pypiFailed) {
+    Write-Host ""
+    Write-Host "PyPI install failed; falling back to latest main from GitHub..."
+    pipx install --force "git+https://github.com/jleal52/claude-hub.git"
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "GitHub install also failed. Check errors above."
+    }
+}
 
 Write-Host ""
-Write-Host "claude-hub installed. Run 'claude-hub install' to configure."
+Write-Host "claude-hub installed. Open a NEW PowerShell window, then run:"
+Write-Host "    claude-hub install"
+Write-Host ""
+Write-Host "(A new window is needed so the updated PATH from pipx takes effect.)"

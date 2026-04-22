@@ -24,8 +24,17 @@ if ! command -v pipx >/dev/null 2>&1; then
     export PATH="$HOME/.local/bin:$PATH"
 fi
 
-echo "Installing claude-hub..."
-pipx install --force claude-code-hub
+echo "Installing claude-hub from PyPI..."
+if ! pipx install --force claude-code-hub 2>&1 | tee /tmp/claude-hub-pipx.log; then
+    :
+fi
+if grep -q "No matching distribution" /tmp/claude-hub-pipx.log 2>/dev/null; then
+    echo ""
+    echo "PyPI install failed; falling back to latest main from GitHub..."
+    pipx install --force "git+https://github.com/jleal52/claude-hub.git"
+fi
+rm -f /tmp/claude-hub-pipx.log
 
 echo ""
-echo "claude-hub installed. Run 'claude-hub install' to configure."
+echo "claude-hub installed. Open a new shell (or run 'source ~/.bashrc'), then:"
+echo "    claude-hub install"
