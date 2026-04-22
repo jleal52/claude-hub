@@ -19,8 +19,24 @@ fi
 
 if ! command -v pipx >/dev/null 2>&1; then
     echo "Installing pipx..."
-    "$PYTHON" -m pip install --user pipx
-    "$PYTHON" -m pipx ensurepath
+    # Debian 12+/Ubuntu 23.04+ enforce PEP 668 and refuse `pip install --user`
+    # into the system interpreter. Try the distro package first (pipx is in
+    # apt/dnf/pacman), then fall back to `pip install --user` for systems
+    # without a packaged pipx. Last resort: --break-system-packages (safe
+    # because we're only adding pipx to the user site-packages).
+    if command -v apt-get >/dev/null 2>&1 && [ "$(id -u)" = "0" ]; then
+        apt-get update -qq && apt-get install -y pipx
+    elif command -v apt-get >/dev/null 2>&1 && command -v sudo >/dev/null 2>&1; then
+        sudo apt-get update -qq && sudo apt-get install -y pipx
+    elif command -v brew >/dev/null 2>&1; then
+        brew install pipx
+    elif "$PYTHON" -m pip install --user pipx >/dev/null 2>&1; then
+        :
+    else
+        echo "  pip refused (PEP 668); retrying with --break-system-packages..."
+        "$PYTHON" -m pip install --user --break-system-packages pipx
+    fi
+    "$PYTHON" -m pipx ensurepath >/dev/null 2>&1 || true
     export PATH="$HOME/.local/bin:$PATH"
 fi
 

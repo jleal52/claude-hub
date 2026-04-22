@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.1.10] -- 2026-04-22
+
+### Fixed
+- `install.sh` failed on Debian 12+/Ubuntu 23.04+ with `error: externally-managed-environment` (PEP 668) because it called `pip install --user pipx` against the system interpreter. The bootstrap now prefers the distro package (`apt install pipx` via sudo if needed, or `brew install pipx` on macOS), falls back to `pip install --user` on systems where that still works, and only uses `--break-system-packages` as a last resort. Makes the one-liner curl install work out of the box on current Debian/Ubuntu.
+
 ## [0.1.9] -- 2026-04-22
 
 ### Fixed
