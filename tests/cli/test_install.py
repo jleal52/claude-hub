@@ -1,7 +1,11 @@
 """Unit tests for cli/install.py deterministic helpers."""
 from unittest.mock import MagicMock, patch
 
-from claude_hub.cli.install import MCP_SERVER_NAME, _register_mcp
+from claude_hub.cli.install import (
+    MCP_SERVER_NAME,
+    _install_mcp_inside_wsl,
+    _register_mcp,
+)
 
 
 def _fake_run_success():
@@ -45,3 +49,55 @@ def test_register_mcp_first_removes_prior_registration():
         _register_mcp("/usr/bin/claude")
     first_call = fake_run.call_args_list[0].args[0]
     assert first_call[1:6] == ["mcp", "remove", MCP_SERVER_NAME, "-s", "user"]
+
+
+def _wsl_fake(stdout: str = "OK", returncode: int = 0):
+    return MagicMock(returncode=returncode, stdout=stdout, stderr="")
+
+
+def test_install_mcp_inside_wsl_happy_path():
+    """When pipx is already present, only 2 invocations: install + register."""
+    fake_run = MagicMock(side_effect=[
+        _wsl_fake("OK\n"),           # probe: pipx exists
+        _wsl_fake(),                 # pipx install
+        _wsl_fake(),                 # claude-hub install --mcp-only
+    ])
+    with patch("claude_hub.cli.install.subprocess.run", fake_run):
+        ok = _install_mcp_inside_wsl("Debian")
+    assert ok is True
+    # Each call should be `wsl.exe -d Debian -- bash -lc <script>`
+    for call in fake_run.call_args_list:
+        argv = call.args[0]
+        assert argv[0] == "wsl.exe"
+        assert argv[1:4] == ["-d", "Debian", "--"]
+        assert argv[4:6] == ["bash", "-lc"]
+
+
+def test_install_mcp_inside_wsl_installs_pipx_if_missing():
+    """Missing pipx triggers a 4-step sequence: probe, install pipx, install pkg, register."""
+    fake_run = MagicMock(side_effect=[
+        _wsl_fake("MISSING\n"),      # probe: pipx absent
+        _wsl_fake(),                 # pip install --user pipx
+        _wsl_fake(),                 # pipx install
+        _wsl_fake(),                 # claude-hub install --mcp-only
+    ])
+    with patch("claude_hub.cli.install.subprocess.run", fake_run):
+        ok = _install_mcp_inside_wsl("Ubuntu")
+    assert ok is True
+    # The pip install step should be present in the script
+    second_script = fake_run.call_args_list[1].args[0][-1]
+    assert "pipx" in second_script
+    assert "pip install" in second_script
+
+
+def test_install_mcp_inside_wsl_returns_false_on_any_failure():
+    """If the final register step fails, the helper returns False so the
+    caller prints a [WARN] with manual instructions."""
+    fake_run = MagicMock(side_effect=[
+        _wsl_fake("OK\n"),           # probe
+        _wsl_fake(),                 # pipx install OK
+        _wsl_fake(returncode=1),     # register FAILED
+    ])
+    with patch("claude_hub.cli.install.subprocess.run", fake_run):
+        ok = _install_mcp_inside_wsl("Debian")
+    assert ok is False

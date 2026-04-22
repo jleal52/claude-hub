@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.1.8] -- 2026-04-22
+
+### Added
+- `claude-hub install --wsl <distro>` now also installs the `claude-code-hub` package inside the distro (via pipx, bootstrapping it with `pip install --user` if missing) and registers the MCP there. Before this, the Windows-side install only registered the MCP on the host, so the `WSL-<distro>` environment in claude.ai/code didn't expose `claude-hub-projects` tools. Prints `[OK] registered MCP inside <distro>` on success, or `[WARN]` with the manual fallback command if anything fails (keeping the overall install non-blocking).
+
 ## [0.1.7] -- 2026-04-22
 
 ### Fixed

@@ -80,6 +80,19 @@ def _install_non_interactive(args: argparse.Namespace) -> int:
                 except RuntimeError as e:
                     print(f"[FAIL] WSL service for {distro}: {e}", file=sys.stderr)
 
+                # Also install the claude-hub package + register the MCP INSIDE the
+                # distro. Without this, the WSL-Debian environment in claude.ai/code
+                # wouldn't have claude-hub-projects tools (the MCP is per-side).
+                if do_mcp and _install_mcp_inside_wsl(distro):
+                    print(f"[OK] registered MCP inside {distro}")
+                elif do_mcp:
+                    print(
+                        f"[WARN] could not register MCP inside {distro}. "
+                        f"Run manually inside the distro: "
+                        f"pipx install claude-code-hub && claude-hub install --no-interactive --mcp-only",
+                        file=sys.stderr,
+                    )
+
     if do_mcp:
         if _register_mcp(claude_bin):
             print(f"[OK] registered MCP {MCP_SERVER_NAME}")
@@ -100,6 +113,57 @@ def _install_non_interactive(args: argparse.Namespace) -> int:
     )
     print("Done. Check status with: claude-hub status")
     return 0
+
+
+def _install_mcp_inside_wsl(distro: str) -> bool:
+    """Install claude-code-hub + register the MCP inside a WSL distro.
+
+    Steps (each run inside `wsl -d <distro> -- bash -lc ...`):
+      1. Ensure pipx is available (install via pip --user if missing).
+      2. `pipx install --force claude-code-hub` to get the package.
+      3. `claude-hub install --no-interactive --mcp-only` to register the MCP
+         via `claude mcp add` against the OAuth creds inside the distro.
+
+    Returns True on full success, False if any step fails. Errors are
+    captured into the caller's warning message, not printed here, so we don't
+    spam during normal operation.
+    """
+    wsl = "wsl.exe"
+
+    def _run_in_wsl(script: str, timeout: int = 180) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [wsl, "-d", distro, "--", "bash", "-lc", script],
+            capture_output=True, text=True, check=False, timeout=timeout,
+        )
+
+    # 1. pipx
+    probe = _run_in_wsl("command -v pipx >/dev/null 2>&1 && echo OK || echo MISSING")
+    if "MISSING" in probe.stdout:
+        # Try pip install --user (break-system-packages needed on Debian/Ubuntu
+        # with PEP 668 externally-managed markers).
+        install_pipx = _run_in_wsl(
+            "python3 -m pip install --user --break-system-packages --quiet pipx "
+            "&& python3 -m pipx ensurepath >/dev/null 2>&1"
+        )
+        if install_pipx.returncode != 0:
+            return False
+
+    # 2. Install the package. Ensure $HOME/.local/bin is on PATH for this and
+    #    later steps; pipx ensurepath only affects future shells.
+    install_pkg = _run_in_wsl(
+        'export PATH="$HOME/.local/bin:$PATH"; '
+        "pipx install --force claude-code-hub"
+    )
+    if install_pkg.returncode != 0:
+        return False
+
+    # 3. Register the MCP via the installed CLI (so the same '--' separator
+    #    and `claude mcp add` logic is used as on the host).
+    register = _run_in_wsl(
+        'export PATH="$HOME/.local/bin:$PATH"; '
+        "claude-hub install --no-interactive --mcp-only"
+    )
+    return register.returncode == 0
 
 
 def _register_mcp(claude_bin: str) -> bool:
