@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.1.2] -- 2026-04-22
+
+### Fixed
+- MCP registration failed with `error: unknown option '-m'`. The `claude mcp add` command interprets the first `-`-prefixed token after the server name as one of its own options; we now pass `--` to separate the command path from its arguments. `_register_mcp` also returns a boolean so the installer prints `[FAIL]` instead of a misleading `[OK]` when the registration fails. Added regression tests.
+
 ## [0.1.1] -- 2026-04-22
 
 ### Fixed

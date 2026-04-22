@@ -75,8 +75,10 @@ def _install_non_interactive(args: argparse.Namespace) -> int:
                 print(f"[OK] installed WSL service for {distro}")
 
     if do_mcp:
-        _register_mcp(claude_bin)
-        print(f"[OK] registered MCP {MCP_SERVER_NAME}")
+        if _register_mcp(claude_bin):
+            print(f"[OK] registered MCP {MCP_SERVER_NAME}")
+        else:
+            print(f"[FAIL] could not register MCP {MCP_SERVER_NAME}")
 
     save(
         Config(
@@ -94,15 +96,28 @@ def _install_non_interactive(args: argparse.Namespace) -> int:
     return 0
 
 
-def _register_mcp(claude_bin: str) -> None:
+def _register_mcp(claude_bin: str) -> bool:
+    """Register the MCP via `claude mcp add`. Returns True on success."""
     py = sys.executable
     subprocess.run([claude_bin, "mcp", "remove", MCP_SERVER_NAME, "-s", "user"],
                    check=False, capture_output=True)
-    subprocess.run(
-        [claude_bin, "mcp", "add", "-s", "user", MCP_SERVER_NAME, py,
-         "-m", "claude_hub.mcp"],
+    # The `--` separator is REQUIRED: without it `claude mcp add` interprets
+    # `-m` as one of its own options and fails with "unknown option '-m'".
+    result = subprocess.run(
+        [claude_bin, "mcp", "add", "-s", "user", MCP_SERVER_NAME,
+         "--", py, "-m", "claude_hub.mcp"],
         check=False,
+        capture_output=True,
+        text=True,
     )
+    if result.returncode != 0:
+        print(f"ERROR: `claude mcp add` failed (exit {result.returncode}):", file=sys.stderr)
+        if result.stdout:
+            print(result.stdout, file=sys.stderr)
+        if result.stderr:
+            print(result.stderr, file=sys.stderr)
+        return False
+    return True
 
 
 def _install_interactive(args: argparse.Namespace) -> int:
