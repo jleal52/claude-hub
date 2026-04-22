@@ -1,35 +1,41 @@
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from claude_hub.service.base import ServiceSpec
 from claude_hub.service.windows_scheduled_task import (
-    ScheduledTaskManager, _task_name,
+    ScheduledTaskManager,
+    _shim_path,
+    _task_name,
+    _write_shim,
+    _xml_template,
 )
 
 
 def _spec(name="claude-hub"):
     return ServiceSpec(
         name=name,
-        command=[r"C:\Users\u\.local\bin\claude.exe", "remote-control", "--name", "x"],
+        command=[r"C:\Users\u\.local\bin\claude.exe", "remote-control", "--name", "x", "--spawn", "same-dir"],
         cwd=r"C:\Users\u",
         env={},
         auto_start=True,
+        stdout_log=Path(r"C:\Users\u\.claude-hub\logs\claude-hub.out.log"),
+        stderr_log=Path(r"C:\Users\u\.claude-hub\logs\claude-hub.err.log"),
     )
 
 
 def test_task_name_uses_root_path():
-    """Regression: creating tasks under a custom folder (\\claude-hub\\...)
-    fails with 'Acceso denegado' / 'Access denied' on many Windows installs
-    unless elevated. The flat \\<name> layout works without admin."""
+    """Regression: tasks under a custom \\claude-hub\\ folder require
+    elevated privileges on Windows 11. Registering at the root avoids that."""
     assert _task_name("claude-hub") == r"\claude-hub"
     assert _task_name("claude-hub-wsl-debian") == r"\claude-hub-wsl-debian"
 
 
-def test_install_uses_xml_template():
-    """Regression: flag-only `schtasks /Create /SC ONLOGON` returns 'Acceso
-    denegado' on Windows 11 22H2+ when not elevated. Using an XML template
-    with LogonType=InteractiveToken bypasses the restriction."""
+def test_install_uses_xml_template(monkeypatch, tmp_path):
+    """Flag-only `schtasks /Create /SC ONLOGON` returns 'Acceso denegado' on
+    Windows 11 22H2+ without admin. XML with LogonType=InteractiveToken works."""
+    monkeypatch.setenv("CLAUDE_HUB_DIR", str(tmp_path))
     fake_run = MagicMock(return_value=MagicMock(returncode=0, stdout="", stderr=""))
     with patch("claude_hub.service.windows_scheduled_task.subprocess.run", fake_run):
         ScheduledTaskManager().install(_spec("claude-hub"))
@@ -37,22 +43,46 @@ def test_install_uses_xml_template():
     create_call = next(c for c in commands if c[0] == "schtasks" and "/Create" in c)
     assert "/XML" in create_call
     assert "/TN" in create_call
-    # /SC ONLOGON is NOT passed when /XML is used.
     assert "/SC" not in create_call
 
 
-def test_install_xml_has_interactive_token_logon():
+def test_install_writes_shim_and_points_xml_at_it(monkeypatch, tmp_path):
+    """The Scheduled Task XML launches a .cmd shim, not claude.exe directly.
+    The shim redirects stdin from NUL (so claude remote-control doesn't detect
+    --print mode) and routes stdout/stderr to the log files."""
+    monkeypatch.setenv("CLAUDE_HUB_DIR", str(tmp_path))
+    spec = _spec("claude-hub")
+    shim = _write_shim(spec)
+    assert shim.exists()
+    content = shim.read_text(encoding="ascii")
+    assert "< NUL" in content
+    assert str(spec.command[0]) in content
+    assert "remote-control" in content
+    assert str(spec.stdout_log) in content
+    assert str(spec.stderr_log) in content
+
+    # XML must reference the shim, not the claude.exe directly.
+    xml = _xml_template(spec, shim)
+    assert str(shim) in xml
+    # claude.exe is referenced only inside the shim, not the XML
+    assert spec.command[0] not in xml
+
+
+def test_xml_has_interactive_token_logon(monkeypatch, tmp_path):
     """The generated XML must specify LogonType=InteractiveToken."""
-    from claude_hub.service.windows_scheduled_task import _xml_template
-    xml = _xml_template(_spec("claude-hub"))
+    monkeypatch.setenv("CLAUDE_HUB_DIR", str(tmp_path))
+    spec = _spec("claude-hub")
+    shim = _shim_path("claude-hub")
+    xml = _xml_template(spec, shim)
     assert "<LogonType>InteractiveToken</LogonType>" in xml
     assert "<RunLevel>LeastPrivilege</RunLevel>" in xml
     assert "<LogonTrigger>" in xml
 
 
-def test_install_raises_on_failure():
+def test_install_raises_on_failure(monkeypatch, tmp_path):
     """Regression: earlier versions silently ignored schtasks failures, so the
     installer printed [OK] even when the task wasn't created."""
+    monkeypatch.setenv("CLAUDE_HUB_DIR", str(tmp_path))
     fake_run = MagicMock(return_value=MagicMock(
         returncode=1,
         stdout="ERROR: Access is denied.\n",
@@ -63,11 +93,20 @@ def test_install_raises_on_failure():
             ScheduledTaskManager().install(_spec())
 
 
-def test_uninstall_calls_schtasks_delete():
+def test_uninstall_removes_task_and_shim(monkeypatch, tmp_path):
+    monkeypatch.setenv("CLAUDE_HUB_DIR", str(tmp_path))
+    # Pre-create a shim to simulate a prior install
+    shim = _shim_path("claude-hub")
+    shim.parent.mkdir(parents=True, exist_ok=True)
+    shim.write_text("dummy", encoding="ascii")
+    assert shim.exists()
+
     fake_run = MagicMock(return_value=MagicMock(returncode=0))
     with patch("claude_hub.service.windows_scheduled_task.subprocess.run", fake_run):
         ScheduledTaskManager().uninstall("claude-hub")
+
     commands = [call.args[0] for call in fake_run.call_args_list]
     delete_call = next(c for c in commands if c[0] == "schtasks" and "/Delete" in c)
     assert "/TN" in delete_call
     assert "/F" in delete_call
+    assert not shim.exists()

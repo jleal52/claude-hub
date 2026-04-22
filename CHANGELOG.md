@@ -5,6 +5,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.1.7] -- 2026-04-22
+
+### Fixed
+- Windows Scheduled Task action launched the claude binary directly, without stdin attached. `claude remote-control` interpreted the closed stdin as `--print` mode and exited immediately, so tasks showed `Ready` (not `Running`) right after `/Run`. The backend now generates a small `.cmd` shim per service under `~/.claude-hub/`, with `< NUL` for stdin and stdout/stderr redirected to `logs/<name>.{out,err}.log`. The XML action points at the shim. This makes task logs visible and the service actually stays alive.
+
+### Added
+- `list_logs(name)` in the Scheduled Task backend now returns the out/err log paths when present.
+
 ## [0.1.6] -- 2026-04-22
 
 ### Fixed
