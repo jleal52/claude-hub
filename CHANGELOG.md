@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.1.1] -- 2026-04-22
+
+### Fixed
+- Windows: `claude-hub status` (and any command loading config) crashed with `tomllib.TOMLDecodeError: Invalid hex value` when the saved `config.toml` contained Windows paths like `C:\Users\...`. Config serializer now uses TOML literal strings (single quotes) so backslashes are preserved verbatim. Added a regression test covering Windows paths round-trip.
+
 ## [0.1.0] -- 2026-04-22
 
 Initial release.
