@@ -8,7 +8,9 @@ from claude_hub.service.windows_scheduled_task import (
     ScheduledTaskManager,
     _shim_path,
     _task_name,
+    _vbs_launcher_path,
     _write_shim,
+    _write_vbs_launcher,
     _xml_template,
 )
 
@@ -46,10 +48,9 @@ def test_install_uses_xml_template(monkeypatch, tmp_path):
     assert "/SC" not in create_call
 
 
-def test_install_writes_shim_and_points_xml_at_it(monkeypatch, tmp_path):
-    """The Scheduled Task XML launches a .cmd shim, not claude.exe directly.
-    The shim redirects stdin from NUL (so claude remote-control doesn't detect
-    --print mode) and routes stdout/stderr to the log files."""
+def test_shim_has_stdin_nul_and_log_redirects(monkeypatch, tmp_path):
+    """The .cmd shim must redirect stdin from NUL (so claude remote-control
+    doesn't detect --print mode) and route stdout/stderr to the log files."""
     monkeypatch.setenv("CLAUDE_HUB_DIR", str(tmp_path))
     spec = _spec("claude-hub")
     shim = _write_shim(spec)
@@ -61,10 +62,36 @@ def test_install_writes_shim_and_points_xml_at_it(monkeypatch, tmp_path):
     assert str(spec.stdout_log) in content
     assert str(spec.stderr_log) in content
 
-    # XML must reference the shim, not the claude.exe directly.
-    xml = _xml_template(spec, shim)
-    assert str(shim) in xml
-    # claude.exe is referenced only inside the shim, not the XML
+
+def test_vbs_launcher_uses_swhide(monkeypatch, tmp_path):
+    """The .vbs launcher must run the shim with SW_HIDE so no console window
+    flashes. That means WshShell.Run's second argument is 0."""
+    monkeypatch.setenv("CLAUDE_HUB_DIR", str(tmp_path))
+    shim = tmp_path / "task-claude-hub.cmd"
+    shim.write_text("dummy", encoding="ascii")
+    vbs = _write_vbs_launcher("claude-hub", shim)
+    assert vbs.exists()
+    content = vbs.read_text(encoding="ascii")
+    assert "WshShell.Run" in content
+    # The critical bit: second argument to Run must be 0 (SW_HIDE).
+    # Third arg should be False so VBS returns immediately without waiting.
+    assert ", 0, False" in content
+    assert str(shim) in content
+
+
+def test_xml_invokes_wscript_with_vbs_not_cmd_directly(monkeypatch, tmp_path):
+    """Regression: before the .vbs indirection the XML action pointed at the
+    .cmd directly, which made Task Scheduler flash a console window at logon.
+    Now the action is `wscript.exe <vbs-launcher>` and the .vbs hides the window."""
+    monkeypatch.setenv("CLAUDE_HUB_DIR", str(tmp_path))
+    spec = _spec("claude-hub")
+    vbs = _vbs_launcher_path("claude-hub")
+    xml = _xml_template(spec, vbs)
+    assert "<Command>wscript.exe</Command>" in xml
+    assert str(vbs) in xml
+    # The .cmd shim path and claude.exe must NOT appear in the XML; they live
+    # inside the chain .vbs → .cmd which is resolved at runtime.
+    assert ".cmd" not in xml
     assert spec.command[0] not in xml
 
 
@@ -72,8 +99,8 @@ def test_xml_has_interactive_token_logon(monkeypatch, tmp_path):
     """The generated XML must specify LogonType=InteractiveToken."""
     monkeypatch.setenv("CLAUDE_HUB_DIR", str(tmp_path))
     spec = _spec("claude-hub")
-    shim = _shim_path("claude-hub")
-    xml = _xml_template(spec, shim)
+    vbs = _vbs_launcher_path("claude-hub")
+    xml = _xml_template(spec, vbs)
     assert "<LogonType>InteractiveToken</LogonType>" in xml
     assert "<RunLevel>LeastPrivilege</RunLevel>" in xml
     assert "<LogonTrigger>" in xml

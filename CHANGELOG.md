@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.1.9] -- 2026-04-22
+
+### Fixed
+- Windows Scheduled Task flashed a `cmd.exe` console window at logon and on `/Run` because the action pointed at a `.cmd` shim. Task Scheduler's `<Hidden>true</Hidden>` hides the task from the GUI but does not hide the child process's console window. The backend now generates a tiny `.vbs` launcher alongside the `.cmd` shim and sets the XML action to `wscript.exe <launcher.vbs>`. The VBS calls `WshShell.Run "<shim.cmd>", 0, False` (SW_HIDE + don't wait), so the shim and its `claude remote-control` child run fully detached with no visible window.
+
 ## [0.1.8] -- 2026-04-22
 
 ### Added
