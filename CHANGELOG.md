@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.1.3] -- 2026-04-22
+
+### Fixed
+- Windows backends (Scheduled Task, NSSM) silently ignored `schtasks` / `nssm` failures, causing the installer to print `[OK] installed service ...` even when nothing was registered. They now raise `RuntimeError` with the stderr output, and the CLI prints `[FAIL]` with the underlying error. Includes regression tests.
+
 ## [0.1.2] -- 2026-04-22
 
 ### Fixed

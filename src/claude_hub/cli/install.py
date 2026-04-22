@@ -50,8 +50,11 @@ def _install_non_interactive(args: argparse.Namespace) -> int:
             stdout_log=paths.logs_dir() / "hub.out.log",
             stderr_log=paths.logs_dir() / "hub.err.log",
         )
-        manager.install(spec)
-        print(f"[OK] installed service {SERVICE_NAME_HUB}")
+        try:
+            manager.install(spec)
+            print(f"[OK] installed service {SERVICE_NAME_HUB}")
+        except RuntimeError as e:
+            print(f"[FAIL] {SERVICE_NAME_HUB}: {e}", file=sys.stderr)
 
     wsl_entries: list[WslEntry] = []
     if do_hub and args.wsl:
@@ -68,11 +71,14 @@ def _install_non_interactive(args: argparse.Namespace) -> int:
                     env={},
                 )
                 wrapped = wrap_for_wsl(inner, distro=distro, wsl_cwd=wsl_cwd)
-                manager.install(wrapped)
-                wsl_entries.append(
-                    WslEntry(distro=distro, session_name=wsl_session_name, working_dir=wsl_cwd)
-                )
-                print(f"[OK] installed WSL service for {distro}")
+                try:
+                    manager.install(wrapped)
+                    wsl_entries.append(
+                        WslEntry(distro=distro, session_name=wsl_session_name, working_dir=wsl_cwd)
+                    )
+                    print(f"[OK] installed WSL service for {distro}")
+                except RuntimeError as e:
+                    print(f"[FAIL] WSL service for {distro}: {e}", file=sys.stderr)
 
     if do_mcp:
         if _register_mcp(claude_bin):

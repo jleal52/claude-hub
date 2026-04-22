@@ -31,7 +31,15 @@ class ScheduledTaskManager(ServiceManager):
             "/TN", _task_name(spec.name),
             "/TR", _build_tr_argument(spec),
         ]
-        subprocess.run(cmd, check=False, capture_output=True)
+        result = subprocess.run(cmd, check=False, capture_output=True, text=True)
+        if result.returncode != 0:
+            # schtasks prints errors to stdout (not stderr) in many cases.
+            stderr = (result.stderr or "").strip()
+            stdout = (result.stdout or "").strip()
+            msg = stderr or stdout or "no output"
+            raise RuntimeError(
+                f"schtasks /Create failed for {spec.name} (exit {result.returncode}): {msg}"
+            )
 
     def uninstall(self, name: str) -> None:
         subprocess.run(

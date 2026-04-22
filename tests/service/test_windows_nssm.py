@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock, patch
 
+import pytest
 
 from claude_hub.service.base import ServiceSpec
 from claude_hub.service.windows_nssm import NssmManager
@@ -26,6 +27,20 @@ def test_install_issues_nssm_install_and_set_sequence():
     assert "AppParameters" in set_keys
     assert "AppDirectory" in set_keys
     assert "Start" in set_keys
+
+
+def test_install_raises_on_nssm_install_failure():
+    """Regression: earlier versions silently ignored nssm errors. If the `install`
+    step fails (e.g. not elevated, name conflict) the caller must know."""
+    # stop + remove succeed (no-op on a clean system), then install fails.
+    fake_run = MagicMock(side_effect=[
+        MagicMock(returncode=0, stdout="", stderr=""),  # stop
+        MagicMock(returncode=0, stdout="", stderr=""),  # remove
+        MagicMock(returncode=5, stdout="", stderr="Access is denied."),  # install
+    ])
+    with patch("claude_hub.service.windows_nssm.subprocess.run", fake_run):
+        with pytest.raises(RuntimeError, match="nssm install failed"):
+            NssmManager().install(_spec())
 
 
 def test_uninstall_stops_and_removes():

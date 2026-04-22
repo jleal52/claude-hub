@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock, patch
 
+import pytest
 
 from claude_hub.service.base import ServiceSpec
 from claude_hub.service.windows_scheduled_task import (
@@ -29,6 +30,19 @@ def test_install_calls_schtasks_create():
     create_call = next(c for c in commands if c[0] == "schtasks" and "/Create" in c)
     assert "/SC" in create_call and "ONLOGON" in create_call
     assert "/TN" in create_call
+
+
+def test_install_raises_on_failure():
+    """Regression: earlier versions silently ignored schtasks failures, so the
+    installer printed [OK] even when the task wasn't created."""
+    fake_run = MagicMock(return_value=MagicMock(
+        returncode=1,
+        stdout="ERROR: Access is denied.\n",
+        stderr="",
+    ))
+    with patch("claude_hub.service.windows_scheduled_task.subprocess.run", fake_run):
+        with pytest.raises(RuntimeError, match="schtasks /Create failed"):
+            ScheduledTaskManager().install(_spec())
 
 
 def test_uninstall_calls_schtasks_delete():

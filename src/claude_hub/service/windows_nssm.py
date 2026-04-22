@@ -15,7 +15,14 @@ class NssmManager(ServiceManager):
         exe = spec.command[0]
         app_params = " ".join(f'"{arg}"' if " " in arg else arg for arg in spec.command[1:])
 
-        subprocess.run(["nssm", "install", spec.name, exe], check=False, capture_output=True)
+        result = subprocess.run(["nssm", "install", spec.name, exe],
+                                check=False, capture_output=True, text=True)
+        if result.returncode != 0:
+            msg = (result.stderr or result.stdout or "").strip() or "no output"
+            raise RuntimeError(
+                f"nssm install failed for {spec.name} (exit {result.returncode}): {msg}\n"
+                "Hint: NSSM requires an elevated shell. Re-run from Administrator PowerShell."
+            )
         subprocess.run(["nssm", "set", spec.name, "AppParameters", app_params],
                        check=False, capture_output=True)
         subprocess.run(["nssm", "set", spec.name, "AppDirectory", spec.cwd],
