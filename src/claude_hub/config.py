@@ -1,10 +1,8 @@
 """Config file load/save (TOML)."""
 from __future__ import annotations
 
-import sys
 import tomllib
 from dataclasses import asdict, dataclass, field
-from pathlib import Path
 from typing import Literal, Optional
 
 from .platform import paths

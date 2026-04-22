@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 import plistlib
 
 from claude_hub.service.base import ServiceSpec
-from claude_hub.service.macos_launchd import LaunchdManager, _plist_path, _label
+from claude_hub.service.macos_launchd import LaunchdManager, _label
 
 
 def _spec(name="claude-hub"):

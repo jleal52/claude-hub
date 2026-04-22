@@ -1,6 +1,4 @@
 # tests/test_config.py
-from pathlib import Path
-import pytest
 from claude_hub.config import Config, HubConfig, WslEntry, ServiceConfig, load, save
 
 

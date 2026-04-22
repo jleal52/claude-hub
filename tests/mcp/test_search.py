@@ -1,6 +1,6 @@
 from pathlib import Path
 import pytest
-from claude_hub.mcp.search import Match, search_conversations
+from claude_hub.mcp.search import search_conversations
 
 
 def test_empty_query_raises(tmp_claude_home: Path):

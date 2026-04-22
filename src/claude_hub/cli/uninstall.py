@@ -4,7 +4,6 @@ from __future__ import annotations
 import argparse
 import shutil
 import subprocess
-import sys
 
 from ..config import load as load_config
 from ..platform import paths

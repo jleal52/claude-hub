@@ -1,6 +1,5 @@
 import json
 from pathlib import Path
-import pytest
 from claude_hub.mcp.state import SpawnEntry, load, save
 
 

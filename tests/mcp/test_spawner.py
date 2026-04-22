@@ -1,10 +1,12 @@
-from pathlib import Path
+import sys
+from unittest.mock import MagicMock, patch
+
 import pytest
+
 from claude_hub.mcp.spawner import (
     derive_name_from_path,
-    resolve_name_collision,
     extract_env_url,
-    SpawnEntry,
+    resolve_name_collision,
 )
 
 
@@ -48,10 +50,6 @@ def test_extract_env_url_returns_none_if_absent():
 def test_extract_env_url_finds_in_multiline_block():
     block = "line1\nsome noise\n... https://claude.ai/code?environment=env_ZZZ9 ...\nmore"
     assert extract_env_url(block) == "https://claude.ai/code?environment=env_ZZZ9"
-
-
-import sys
-from unittest.mock import patch, MagicMock
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows-only branch")

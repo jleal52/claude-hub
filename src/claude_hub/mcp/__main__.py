@@ -5,7 +5,6 @@ import asyncio
 import json
 import logging
 from dataclasses import asdict
-from pathlib import Path
 
 from mcp.server import Server
 from mcp.server.stdio import stdio_server

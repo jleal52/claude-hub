@@ -1,6 +1,5 @@
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 from claude_hub.service.base import ServiceSpec
 from claude_hub.service.windows_nssm import NssmManager

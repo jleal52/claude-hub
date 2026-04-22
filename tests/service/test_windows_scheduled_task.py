@@ -1,8 +1,5 @@
-import sys
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 from claude_hub.service.base import ServiceSpec
 from claude_hub.service.windows_scheduled_task import (

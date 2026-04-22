@@ -1,5 +1,4 @@
 # tests/platform/test_detect.py
-import sys
 from unittest.mock import patch
 
 from claude_hub.platform import detect

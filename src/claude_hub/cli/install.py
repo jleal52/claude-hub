@@ -2,11 +2,9 @@
 from __future__ import annotations
 
 import argparse
-import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Optional
 
 from ..platform import detect, paths
 from ..service import factory
