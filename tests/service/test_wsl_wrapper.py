@@ -12,8 +12,27 @@ def test_wrap_composes_wsl_exe_with_distro():
     wrapped = wrap_for_wsl(inner, distro="Debian", wsl_cwd="/home/u")
     assert wrapped.command[0].endswith("wsl.exe")
     assert "-d" in wrapped.command and "Debian" in wrapped.command
+
+
+def test_wrap_uses_bash_lc_for_login_shell():
+    """Regression: wsl.exe -d <distro> -- <cmd> does NOT source ~/.profile,
+    so `claude` from ~/.local/bin is not on PATH → task exits 127. We wrap
+    the command with bash -lc so login shell PATH is sourced."""
+    inner = ServiceSpec(
+        name="wsl-Debian",
+        command=["claude", "remote-control", "--name", "WSL-Debian"],
+        cwd="~",
+        env={},
+    )
+    wrapped = wrap_for_wsl(inner, distro="Debian", wsl_cwd="/home/u")
     dash_idx = wrapped.command.index("--")
-    assert wrapped.command[dash_idx + 1:] == ["claude", "remote-control", "--name", "WSL-Debian"]
+    tail = wrapped.command[dash_idx + 1:]
+    assert tail[0] == "bash"
+    assert tail[1] == "-lc"
+    # The final string must quote the inner command and redirect stdin to /dev/null
+    assert "claude" in tail[2]
+    assert "remote-control" in tail[2]
+    assert "< /dev/null" in tail[2]
 
 
 def test_wrap_preserves_name_and_adds_cd_flag():

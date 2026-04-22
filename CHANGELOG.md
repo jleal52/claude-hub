@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.1.6] -- 2026-04-22
+
+### Fixed
+- WSL task exited with code 127 (`command not found`) because `wsl.exe -d <distro> -- <cmd>` does NOT source `~/.profile`, so `claude` from `~/.local/bin` wasn't on PATH. The wsl_wrapper now wraps the inner command with `bash -lc "<cmd> < /dev/null"`, which sources the login shell PATH and redirects stdin from /dev/null so `claude remote-control` doesn't switch to `--print` mode under Task Scheduler.
+
 ## [0.1.5] -- 2026-04-22
 
 ### Fixed

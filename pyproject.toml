@@ -1,6 +1,6 @@
 [project]
 name = "claude-code-hub"
-version = "0.1.5"
+version = "0.1.6"
 description = "Expose your machine(s) to claude.ai/code with remote-control services and a project-discovery MCP."
 readme = "README.md"
 license = { text = "AGPL-3.0-or-later" }
