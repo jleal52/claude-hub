@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.1.5] -- 2026-04-22
+
+### Fixed
+- Windows 11 22H2+ rejects `schtasks /Create /SC ONLOGON` with `Acceso denegado` / `Access denied` unless the shell is elevated, because without explicit LogonType the task defaults to Password authentication (requires the user's credentials). The ScheduledTask backend now submits an XML template with `LogonType=InteractiveToken` and `RunLevel=LeastPrivilege`, which Windows accepts from a non-elevated shell. Keeps the "no admin required" installer promise.
+
 ## [0.1.4] -- 2026-04-22
 
 ### Fixed

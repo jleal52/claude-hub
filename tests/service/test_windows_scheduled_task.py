@@ -26,14 +26,28 @@ def test_task_name_uses_root_path():
     assert _task_name("claude-hub-wsl-debian") == r"\claude-hub-wsl-debian"
 
 
-def test_install_calls_schtasks_create():
+def test_install_uses_xml_template():
+    """Regression: flag-only `schtasks /Create /SC ONLOGON` returns 'Acceso
+    denegado' on Windows 11 22H2+ when not elevated. Using an XML template
+    with LogonType=InteractiveToken bypasses the restriction."""
     fake_run = MagicMock(return_value=MagicMock(returncode=0, stdout="", stderr=""))
     with patch("claude_hub.service.windows_scheduled_task.subprocess.run", fake_run):
         ScheduledTaskManager().install(_spec("claude-hub"))
     commands = [call.args[0] for call in fake_run.call_args_list]
     create_call = next(c for c in commands if c[0] == "schtasks" and "/Create" in c)
-    assert "/SC" in create_call and "ONLOGON" in create_call
+    assert "/XML" in create_call
     assert "/TN" in create_call
+    # /SC ONLOGON is NOT passed when /XML is used.
+    assert "/SC" not in create_call
+
+
+def test_install_xml_has_interactive_token_logon():
+    """The generated XML must specify LogonType=InteractiveToken."""
+    from claude_hub.service.windows_scheduled_task import _xml_template
+    xml = _xml_template(_spec("claude-hub"))
+    assert "<LogonType>InteractiveToken</LogonType>" in xml
+    assert "<RunLevel>LeastPrivilege</RunLevel>" in xml
+    assert "<LogonTrigger>" in xml
 
 
 def test_install_raises_on_failure():
@@ -45,7 +59,7 @@ def test_install_raises_on_failure():
         stderr="",
     ))
     with patch("claude_hub.service.windows_scheduled_task.subprocess.run", fake_run):
-        with pytest.raises(RuntimeError, match="schtasks /Create failed"):
+        with pytest.raises(RuntimeError, match="schtasks /Create /XML failed"):
             ScheduledTaskManager().install(_spec())
 
 
