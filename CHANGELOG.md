@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.1.4] -- 2026-04-22
+
+### Fixed
+- Windows: `schtasks /Create` failed with `Error: Acceso denegado / Access denied` when registering tasks under a custom `\claude-hub\` folder on Windows 11 installs with stricter Task Scheduler ACLs. Tasks are now registered at the root of the Task Scheduler tree (`\claude-hub`, `\claude-hub-wsl-debian`), which works without elevated privileges. The service names are already unique so the flat layout is not a concern.
+
 ## [0.1.3] -- 2026-04-22
 
 ### Fixed

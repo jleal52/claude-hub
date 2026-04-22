@@ -10,11 +10,18 @@ from pathlib import Path
 
 from .base import ServiceManager, ServiceSpec, ServiceStatus
 
-_TASK_FOLDER = "claude-hub"
-
-
 def _task_name(name: str) -> str:
-    return f"\\{_TASK_FOLDER}\\{name}"
+    """Return the absolute Task Scheduler path for a task.
+
+    We register tasks at the root (`\\<name>`) instead of under a custom
+    folder (`\\claude-hub\\<name>`). Creating a folder under Task Scheduler's
+    root requires elevated privileges on many Windows installs, which would
+    defeat the "no admin required" guarantee of this backend.
+
+    The `name` is already unique (e.g. "claude-hub", "claude-hub-wsl-debian"),
+    so the flat layout is not a namespacing concern.
+    """
+    return f"\\{name}"
 
 
 def _build_tr_argument(spec: ServiceSpec) -> str:

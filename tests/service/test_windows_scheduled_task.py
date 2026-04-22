@@ -18,8 +18,12 @@ def _spec(name="claude-hub"):
     )
 
 
-def test_task_name_namespaced():
-    assert _task_name("claude-hub") == r"\claude-hub\claude-hub"
+def test_task_name_uses_root_path():
+    """Regression: creating tasks under a custom folder (\\claude-hub\\...)
+    fails with 'Acceso denegado' / 'Access denied' on many Windows installs
+    unless elevated. The flat \\<name> layout works without admin."""
+    assert _task_name("claude-hub") == r"\claude-hub"
+    assert _task_name("claude-hub-wsl-debian") == r"\claude-hub-wsl-debian"
 
 
 def test_install_calls_schtasks_create():
