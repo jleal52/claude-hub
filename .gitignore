@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+
+# Virtualenv
+.venv/
+
+# Runtime data (dev-only; prod state lives in ~/.claude-hub/)
+state/
+logs/
+install-run.log
+wsl-launcher-*.sh
+
+# OS / IDE
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
+
+# Local Claude tooling
+.claude/
+
+# Secrets
+*.secret
+.env

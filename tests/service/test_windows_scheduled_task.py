@@ -1,0 +1,44 @@
+import sys
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from claude_hub.service.base import ServiceSpec
+from claude_hub.service.windows_scheduled_task import (
+    ScheduledTaskManager, _task_name,
+)
+
+
+def _spec(name="claude-hub"):
+    return ServiceSpec(
+        name=name,
+        command=[r"C:\Users\u\.local\bin\claude.exe", "remote-control", "--name", "x"],
+        cwd=r"C:\Users\u",
+        env={},
+        auto_start=True,
+    )
+
+
+def test_task_name_namespaced():
+    assert _task_name("claude-hub") == r"\claude-hub\claude-hub"
+
+
+def test_install_calls_schtasks_create():
+    fake_run = MagicMock(return_value=MagicMock(returncode=0, stdout="", stderr=""))
+    with patch("claude_hub.service.windows_scheduled_task.subprocess.run", fake_run):
+        ScheduledTaskManager().install(_spec("claude-hub"))
+    commands = [call.args[0] for call in fake_run.call_args_list]
+    create_call = next(c for c in commands if c[0] == "schtasks" and "/Create" in c)
+    assert "/SC" in create_call and "ONLOGON" in create_call
+    assert "/TN" in create_call
+
+
+def test_uninstall_calls_schtasks_delete():
+    fake_run = MagicMock(return_value=MagicMock(returncode=0))
+    with patch("claude_hub.service.windows_scheduled_task.subprocess.run", fake_run):
+        ScheduledTaskManager().uninstall("claude-hub")
+    commands = [call.args[0] for call in fake_run.call_args_list]
+    delete_call = next(c for c in commands if c[0] == "schtasks" and "/Delete" in c)
+    assert "/TN" in delete_call
+    assert "/F" in delete_call

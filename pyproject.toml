@@ -1,0 +1,44 @@
+[project]
+name = "claude-code-hub"
+version = "0.1.0"
+description = "Expose your machine(s) to claude.ai/code with remote-control services and a project-discovery MCP."
+readme = "README.md"
+license = { text = "AGPL-3.0-or-later" }
+authors = [{ name = "Jorge Leal" }]
+requires-python = ">=3.11"
+keywords = ["claude", "claude-code", "mcp", "remote-control"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = ["mcp>=0.1.0"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0.0"]
+
+[project.urls]
+Homepage = "https://github.com/jleal52/claude-hub"
+Repository = "https://github.com/jleal52/claude-hub"
+Issues = "https://github.com/jleal52/claude-hub/issues"
+
+[project.scripts]
+claude-hub = "claude_hub.cli.main:main"
+
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
