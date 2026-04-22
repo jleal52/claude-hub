@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 from ..platform import detect, paths
+from ..platform.claude_config import ensure_remote_control_consent
 from ..service import factory
 from ..service.base import ServiceSpec
 from ..service.wsl_wrapper import wrap_for_wsl
@@ -40,6 +41,20 @@ def _install_non_interactive(args: argparse.Namespace) -> int:
     do_mcp = not args.hub_only
 
     if do_hub:
+        # Pre-accept the Remote Control + workspace-trust prompts Claude would
+        # otherwise show on first run. Without this the service exits on the
+        # prompt and systemd/schtasks report FAILURE until the user runs
+        # `claude remote-control` interactively. Best-effort: if it fails
+        # we still install the service and let the user resolve it manually.
+        if ensure_remote_control_consent(working_dir):
+            print(f"[OK] accepted Remote Control + trust dialog for {working_dir}")
+        else:
+            print(
+                f"[WARN] could not pre-accept Claude prompts for {working_dir}; "
+                f"if the service fails, run `claude remote-control` there once and accept.",
+                file=sys.stderr,
+            )
+
         spec = ServiceSpec(
             name=SERVICE_NAME_HUB,
             command=[claude_bin, "remote-control", "--name", session_name, "--spawn", "same-dir"],

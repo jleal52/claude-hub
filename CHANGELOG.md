@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.1.11] -- 2026-04-22
+
+### Fixed
+- Fresh Linux installs showed the service as `installed` (never `running`) because `claude remote-control` prompts `Enable Remote Control? (y/n)` the first time it runs and exits when stdin is closed. The same prompt affected non-interactive first installs on macOS and WSL. The installer now pre-writes `remoteDialogSeen=true` and `projects[<working_dir>].hasTrustDialogAccepted=true` in `~/.claude.json` before registering the service (both Windows path variants written on Windows). Makes `claude-hub install` a true one-shot on a clean Linux/macOS/WSL box — no "run claude once first" foot-gun.
+
 ## [0.1.10] -- 2026-04-22
 
 ### Fixed
