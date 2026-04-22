@@ -42,25 +42,29 @@ if (-not $pipxCheck) {
     $env:Path = [Environment]::GetEnvironmentVariable("Path", "User") + ";" + $env:Path
 }
 
-# Install from PyPI. Falls back to GitHub main if PyPI doesn't have the release yet
-# (useful when running this script from a branch ahead of the last tag).
+# Install from PyPI. Falls back to GitHub main if PyPI doesn't have the release
+# yet (useful when running this script from a branch ahead of the last tag).
+#
+# Note: we rely solely on $LASTEXITCODE here. Piping native-command stderr via
+# `2>&1 | Tee-Object` in PS 5.1 can surface stderr lines as NativeCommandError
+# records, which combined with $ErrorActionPreference = "Stop" triggers
+# spurious catches even when the install succeeded.
 Write-Host "Installing claude-hub from PyPI..."
-$pypiFailed = $false
-try {
-    pipx install --force claude-code-hub 2>&1 | Tee-Object -Variable pypiOutput | Out-Host
-    if ($LASTEXITCODE -ne 0 -or ($pypiOutput -match "No matching distribution")) {
-        $pypiFailed = $true
-    }
-} catch {
-    $pypiFailed = $true
-}
+$prev = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
+pipx install --force claude-code-hub
+$pypiExit = $LASTEXITCODE
+$ErrorActionPreference = $prev
 
-if ($pypiFailed) {
+if ($pypiExit -ne 0) {
     Write-Host ""
-    Write-Host "PyPI install failed; falling back to latest main from GitHub..."
+    Write-Host "PyPI install failed (exit $pypiExit); falling back to latest main from GitHub..."
+    $ErrorActionPreference = "Continue"
     pipx install --force "git+https://github.com/jleal52/claude-hub.git"
-    if ($LASTEXITCODE -ne 0) {
-        Write-Error "GitHub install also failed. Check errors above."
+    $ghExit = $LASTEXITCODE
+    $ErrorActionPreference = $prev
+    if ($ghExit -ne 0) {
+        Write-Error "GitHub install also failed (exit $ghExit). Check errors above."
     }
 }
 
