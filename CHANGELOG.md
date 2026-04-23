@@ -5,6 +5,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.1.12] -- 2026-04-24
+
+### Fixed
+- NSSM backend registered broken services in two scenarios that appeared as `installed` (never `running`) with no sessions in claude.ai/code:
+  1. `--use-nssm` with `--wsl <distro>` produced a service that wrapped `wsl.exe`. NSSM runs services under `LocalSystem` and `wsl.exe` refuses to launch under that account (`WSL_E_LOCAL_SYSTEM_NOT_SUPPORTED`). The installer now refuses up front and points to the Scheduled Task backend.
+  2. When `nssm install` was UAC-elevated once but the subsequent `nssm set AppParameters / AppDirectory / AppStdout / ...` lost elevation, those calls silently returned Access Denied and left a service with empty `AppParameters` (so `claude.exe` ran with no subcommand, exited immediately, and no remote session ever registered). The installer now validates every `nssm set` and rolls back on failure with a clear "needs admin" hint.
+
 ## [0.1.11] -- 2026-04-22
 
 ### Fixed
