@@ -38,6 +38,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("doctor", help="Diagnose install health")
 
+    p_web = sub.add_parser("web", help="Local web UI to list/stop spawned sessions")
+    p_web.add_argument("--host", default="127.0.0.1")
+    p_web.add_argument("--port", type=int, default=8765)
+    p_web.add_argument("--no-open", action="store_true", help="don't open browser")
+
     return parser
 
 
@@ -65,6 +70,9 @@ def main(argv: Optional[list[str]] = None) -> int:
     if args.command == "doctor":
         from .doctor import run as run_doctor
         return run_doctor(args)
+    if args.command == "web":
+        from .web import run as run_web
+        return run_web(args)
 
     parser.print_help()
     return 2
